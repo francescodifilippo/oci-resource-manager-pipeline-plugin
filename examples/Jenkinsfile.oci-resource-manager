@@ -1,0 +1,47 @@
+pipeline {
+    agent none
+    stages {
+        stage('OCI plan') {
+            agent none
+            options {
+                ociRmProvision(
+                    connection: 'oci-prod',
+                    stackId: 'ocid1.ormstack.oc1.eu-frankfurt-1.example',
+                    mode: 'plan',
+                    displayName: 'jenkins-plan',
+                    operationKey: 'oci-plan',
+                    waitForCompletion: false
+                )
+            }
+            steps { echo 'OCI plan submitted.' }
+        }
+
+        stage('Await OCI plan') {
+            agent none
+            options {
+                ociRmAwait(
+                    connection: 'oci-prod',
+                    operationKey: 'oci-plan',
+                    timeoutMinutes: 90
+                )
+            }
+            steps { echo 'OCI plan completed.' }
+        }
+
+        stage('OCI apply') {
+            agent none
+            options {
+                ociRmProvision(
+                    connection: 'oci-prod',
+                    stackId: 'ocid1.ormstack.oc1.eu-frankfurt-1.example',
+                    mode: 'apply',
+                    planOperationKey: 'oci-plan',
+                    operationKey: 'oci-apply',
+                    waitForCompletion: true,
+                    timeoutMinutes: 90
+                )
+            }
+            steps { echo 'OCI apply completed.' }
+        }
+    }
+}
