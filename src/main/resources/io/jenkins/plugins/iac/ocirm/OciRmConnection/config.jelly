@@ -1,0 +1,10 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+  <f:entry title="Connection name" field="name"><f:textbox/></f:entry>
+  <f:entry title="OCI region" field="region"><f:textbox/></f:entry>
+  <f:entry title="Tenancy OCID" field="tenancyId"><f:textbox/></f:entry>
+  <f:entry title="User OCID" field="userId"><f:textbox/></f:entry>
+  <f:entry title="API key fingerprint" field="fingerprint"><f:textbox/></f:entry>
+  <f:entry title="Private key (Secret Text credential)" field="privateKeyCredentialsId"><f:credentials/></f:entry>
+  <f:entry title="Private-key passphrase (optional Secret Text credential)" field="passphraseCredentialsId"><f:credentials/></f:entry>
+</j:jelly>
