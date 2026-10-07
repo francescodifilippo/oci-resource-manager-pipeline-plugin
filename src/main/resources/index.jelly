@@ -1,0 +1,4 @@
+<?jelly escape-by-default='true'?>
+<div>
+  Declarative Jenkins Pipeline integration for Oracle Cloud Infrastructure Resource Manager, including plan, apply, destroy, and asynchronous job execution.
+</div>
