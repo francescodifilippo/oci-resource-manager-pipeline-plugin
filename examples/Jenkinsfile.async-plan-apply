@@ -1,0 +1,45 @@
+pipeline {
+    agent none
+    stages {
+        stage('Submit OCI plan') {
+            options {
+                ociRmProvision(
+                    connection: 'oci-prod',
+                    stackId: 'ocid1.ormstack.oc1.eu-frankfurt-1.example',
+                    mode: 'plan',
+                    operationKey: 'oci-plan',
+                    waitForCompletion: false
+                )
+            }
+            steps { echo 'Plan submitted.' }
+        }
+        stage('Independent work') {
+            agent any
+            steps { echo 'Work that does not depend on the plan.' }
+        }
+        stage('Await OCI plan') {
+            options {
+                ociRmAwait(
+                    connection: 'oci-prod',
+                    operationKey: 'oci-plan',
+                    timeoutMinutes: 90
+                )
+            }
+            steps { echo 'Plan completed.' }
+        }
+        stage('OCI apply') {
+            options {
+                ociRmProvision(
+                    connection: 'oci-prod',
+                    stackId: 'ocid1.ormstack.oc1.eu-frankfurt-1.example',
+                    mode: 'apply',
+                    planOperationKey: 'oci-plan',
+                    operationKey: 'oci-apply',
+                    waitForCompletion: true,
+                    timeoutMinutes: 90
+                )
+            }
+            steps { echo 'Apply completed.' }
+        }
+    }
+}
