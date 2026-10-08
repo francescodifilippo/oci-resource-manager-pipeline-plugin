@@ -19,7 +19,7 @@
   <jackson.version>2.22.2</jackson.version>
  </properties>
  <dependencyManagement><dependencies>
-  <dependency><groupId>io.jenkins.tools.bom</groupId><artifactId>bom-${jenkins.baseline}.x</artifactId><version>7020.vf38cb_40380d1</version><type>pom</type><scope>import</scope></dependency>
+  <dependency><groupId>io.jenkins.tools.bom</groupId><artifactId>bom-${jenkins.baseline}.x</artifactId><version>7134.vc450c4b_83de0</version><type>pom</type><scope>import</scope></dependency>
   <dependency><groupId>com.fasterxml.jackson</groupId><artifactId>jackson-bom</artifactId><version>${jackson.version}</version><type>pom</type><scope>import</scope></dependency>
  </dependencies></dependencyManagement>
  <dependencies>
