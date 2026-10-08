@@ -1,0 +1,18 @@
+pipeline {
+    agent none
+    stages {
+        stage('OCI plan') {
+            options {
+                ociRmProvision(
+                    connection: 'oci-prod',
+                    stackId: 'ocid1.ormstack.oc1.eu-frankfurt-1.example',
+                    mode: 'plan',
+                    operationKey: 'oci-plan',
+                    waitForCompletion: true,
+                    timeoutMinutes: 60
+                )
+            }
+            steps { echo 'OCI plan completed.' }
+        }
+    }
+}
