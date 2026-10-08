@@ -1,35 +1,66 @@
 # OCI Resource Manager Pipeline
 
-**Jenkins plugin ID:** `oci-resource-manager-pipeline`  
-**Version:** `0.1.0-SNAPSHOT`
+**Plugin ID:** `oci-resource-manager-pipeline`  
+**Status:** pre-release
 
-Declarative Jenkins Pipeline integration for **Oracle Cloud Infrastructure Resource Manager**. It implements the shared `iac-pipeline-api` backend contract used by the sibling OTF and Terrakube plugins.
+Declarative Jenkins Pipeline integration for Oracle Cloud Infrastructure Resource Manager. It uses the OCI Java SDK and the shared [IaC Pipeline API](https://github.com/francescodifilippo/iac-pipeline-api-plugin) to run `PLAN`, `APPLY`, and `DESTROY` jobs with durable asynchronous execution.
 
-## Features
+## Requirements
 
-- OCI Resource Manager `PLAN`, `APPLY`, and `DESTROY` jobs.
-- Non-blocking Jenkins waiting through the shared IaC core.
-- `waitForCompletion: false` plus a later `ociRmAwait`.
-- Build-scoped correlation using `operationKey`.
-- Apply from a previously completed plan using `planOperationKey` or a direct OCI `planJobId`.
-- OCI `opc-retry-token` mapped from the core's persisted `requestToken`.
-- OCI Java SDK; the plugin does not shell out to the OCI CLI.
+- Jenkins 2.568.3 or newer
+- Java 21
+- `iac-pipeline-api` of the matching tested version
+- OCI Resource Manager stack
+- OCI API-key identity with the required IAM permissions
 
-## Jenkins configuration
+## Installation
 
-In **Manage Jenkins → System**, configure an **OCI Resource Manager connection** with:
+For local pre-release testing:
+
+```bash
+(cd ../iac-pipeline-api-plugin && mvn -B -ntp install)
+mvn -B -ntp verify
+```
+
+The generated HPI is under `target/`.
+
+## Configuration
+
+In **Manage Jenkins → System → OCI Resource Manager connections**, configure:
 
 - connection name;
-- OCI region, for example `eu-frankfurt-1`;
+- OCI region;
 - tenancy OCID;
 - user OCID;
 - API key fingerprint;
-- Jenkins **Secret Text** credential containing the PEM private key;
+- Jenkins Secret Text credential containing the PEM private key;
 - optional Secret Text credential containing the private-key passphrase.
 
-The Pipeline refers only to the connection name. Credentials are never persisted in the build's `RemoteOperation` metadata.
+Pipeline code refers only to the connection name. Private keys and passphrases are never persisted in `RemoteOperation`.
 
-## Pipeline example
+## Pipeline syntax
+
+### `ociRmProvision`
+
+| Parameter | Purpose |
+| --- | --- |
+| `connection` | configured OCI connection |
+| `stackId` | Resource Manager stack OCID |
+| `mode` | `plan`, `apply`, or `destroy` |
+| `displayName` | optional OCI job display name |
+| `planOperationKey` | apply a successful plan from the same Jenkins build |
+| `planJobId` | direct OCI plan job OCID alternative |
+| `autoApprove` | explicitly permit apply without a prior plan |
+| `operationKey` | build-local correlation key |
+| `waitForCompletion` | wait now or continue after submission |
+| `pollingSeconds` | polling interval |
+| `timeoutMinutes` | maximum Jenkins-side wait |
+
+### `ociRmAwait`
+
+Waits for a previously submitted OCI operation using its `operationKey`.
+
+## Plan → apply example
 
 ```groovy
 stage('Plan') {
@@ -42,7 +73,7 @@ stage('Plan') {
       waitForCompletion: true
     )
   }
-  steps { echo 'Plan complete' }
+  steps { echo 'Plan completed' }
 }
 
 stage('Apply') {
@@ -56,41 +87,52 @@ stage('Apply') {
       waitForCompletion: true
     )
   }
-  steps { echo 'Apply complete' }
+  steps { echo 'Apply completed' }
 }
 ```
 
-For an apply without a saved plan, `autoApprove: true` must be explicitly supplied. This is intentionally not the default.
+An apply without a saved plan requires explicit `autoApprove: true`.
 
-A destroy job is explicit:
+## Examples
 
-```groovy
-ociRmProvision(
-  connection: 'oci-prod',
-  stackId: 'ocid1.ormstack.oc1.eu-frankfurt-1.example',
-  mode: 'destroy',
-  operationKey: 'oci-destroy',
-  waitForCompletion: true
-)
-```
+- [asynchronous plan → await → apply](examples/Jenkinsfile.oci-resource-manager)
+- [plan only](examples/Jenkinsfile.plan-only)
+- [plan → apply](examples/Jenkinsfile.plan-apply)
+- [asynchronous plan → await → apply](examples/Jenkinsfile.async-plan-apply)
 
-See `examples/Jenkinsfile.oci-resource-manager` for an asynchronous plan followed by await and apply.
+## Asynchronous execution
 
-## Restart/idempotency behavior
+With `waitForCompletion: false`, Jenkins submits the OCI job, stores the job OCID, and continues. A later `ociRmAwait` waits for the same job without requiring users to copy OCI job IDs into their Jenkinsfile.
 
-OCI Resource Manager accepts `opc-retry-token` when creating jobs. The plugin maps the durable core request token to that header and declares idempotent submit support, allowing the shared lifecycle to retry an interrupted submission. OCI documents retry-token expiry after 24 hours; very long controller outages should therefore still be reconciled operationally before a destructive retry.
+## Restart and idempotency
 
-## Build
+OCI Resource Manager supports `opc-retry-token` for job creation. The plugin maps the core's persisted `requestToken` to that retry token and advertises idempotent submission support. This lets the core retry an interrupted submission without intentionally creating a duplicate job.
 
-Java 21 and Maven 3.9.6+:
+Operational reconciliation is still recommended after unusually long controller outages because provider retry-token retention is finite.
+
+## Security
+
+Use Jenkins Credentials for the API private key and optional passphrase. Do not place PEM keys, passphrases, or tenancy secrets in Pipeline source. See [SECURITY.md](SECURITY.md).
+
+OCI IAM should grant only the Resource Manager and target-resource permissions needed by the stack.
+
+## Compatibility
+
+The plugin uses the OCI Java SDK directly and does not invoke the OCI CLI.
+
+## Development
 
 ```bash
 (cd ../iac-pipeline-api-plugin && mvn -B -ntp install)
 mvn -B -ntp verify
 ```
 
-GitHub Actions checks out and installs `iac-pipeline-api-plugin` before building this provider.
+GitHub Actions uses a same-named core branch when present and otherwise falls back to core `main`.
 
-## Status
+## Contributing
 
-Source prototype. Before a production release, add JenkinsRule/controller restart coverage and validate against real OCI Resource Manager stacks in a non-production tenancy.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+MIT License. See [LICENSE](LICENSE).
