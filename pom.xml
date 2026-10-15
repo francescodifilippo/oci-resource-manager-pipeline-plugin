@@ -15,7 +15,7 @@
  <issueManagement><system>GitHub</system><url>https://github.com/francescodifilippo/oci-resource-manager-pipeline-plugin/issues</url></issueManagement>
  <properties>
   <jenkins.baseline>2.568</jenkins.baseline><jenkins.version>${jenkins.baseline}.3</jenkins.version><java.level>21</java.level>
-  <oci.sdk.version>3.97.1</oci.sdk.version>
+  <oci.sdk.version>3.97.2</oci.sdk.version>
   <jackson.version>2.22.2</jackson.version>
  </properties>
  <dependencyManagement><dependencies>
