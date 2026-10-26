@@ -4,6 +4,11 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      # jackson.version must match the jackson2-api version provided by the
+      # Jenkins BOM, otherwise maven-enforcer RequireUpperBoundDeps fails.
+      # Update it manually together with the Jenkins BOM.
+      - dependency-name: "com.fasterxml.jackson:jackson-bom"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
