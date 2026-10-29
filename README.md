@@ -130,6 +130,8 @@ With `waitForCompletion: false`, Jenkins submits the OCI job, stores the job OCI
 
 OCI Resource Manager supports `opc-retry-token` for job creation. The plugin maps the core's persisted `requestToken` to that retry token and advertises idempotent submission support. This lets the core retry an interrupted submission without intentionally creating a duplicate job.
 
+While waiting, a failed job-status request is retried on the next poll, up to five consecutive times, when OCI reports a server error (5xx), throttling (429), a request timeout (408), or a network/client-side timeout. Other errors, such as authorization failures or a missing credential, fail the stage immediately.
+
 Operational reconciliation is still recommended after unusually long controller outages because provider retry-token retention is finite.
 
 ## Security
