@@ -18,7 +18,10 @@ public final class OciRmProvisionStep extends AbstractProvisionStep {
  private String mode="plan",displayName,planOperationKey,planJobId,stackName,compartmentId;
  private boolean autoApprove;
 
- @DataBoundConstructor public OciRmProvisionStep(String connection,String stackId){super(connection,stackId);}
+ /** stackId is an optional setter so that Pipeline Syntax does not list it as required next to stackName. */
+ @DataBoundConstructor public OciRmProvisionStep(String connection){super(connection);}
+ /** Convenience for Java callers; Pipeline binds stackId through {@link #setStackId}. */
+ public OciRmProvisionStep(String connection,String stackId){super(connection,stackId);}
  public String getConnection(){return getConnectionId();}
  public String getStackId(){return getTargetId();}
  public String getStackName(){return stackName;}
@@ -33,6 +36,7 @@ public final class OciRmProvisionStep extends AbstractProvisionStep {
   if(!Set.of("plan","apply","destroy").contains(value))throw new IllegalArgumentException("mode must be plan/apply/destroy");
   mode=value;
  }
+ @DataBoundSetter public void setStackId(String value){setTargetId(value);}
  @DataBoundSetter public void setStackName(String value){stackName=optionalText(value,"stackName",255);}
  @DataBoundSetter public void setCompartmentId(String value){compartmentId=Identifiers.optionalOpaque(value,"compartmentId");}
  @DataBoundSetter public void setDisplayName(String value){displayName=optionalText(value,"displayName",255);}
