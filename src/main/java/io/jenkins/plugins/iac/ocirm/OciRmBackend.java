@@ -1,5 +1,6 @@
 package io.jenkins.plugins.iac.ocirm;
 
+import com.oracle.bmc.model.BmcException;
 import com.oracle.bmc.resourcemanager.ResourceManagerClient;
 import hudson.Extension;
 import hudson.model.Run;
@@ -30,6 +31,14 @@ import java.util.*;
   try(ResourceManagerClient client=OciRmConnections.get().client(operation.connectionId(),run)){
    return new OciResourceManagerApi(client).status(operation.remoteId());
   }
+ }
+ /** The OCI SDK reports service and network errors as BmcException, a RuntimeException the core default ignores. */
+ @Override public boolean isTransient(Exception e){
+  if(e instanceof BmcException bmc){
+   int code=bmc.getStatusCode();
+   return bmc.isClientSide()||bmc.isTimeout()||code<=0||code>=500||code==408||code==429;
+  }
+  return IacBackend.super.isTransient(e);
  }
  private String resolvePlanJobId(String mode,Map<String,String> p,SubmissionRequest request,Run<?,?> run){
   String direct=blankToNull(p.get("planJobId"));
