@@ -52,10 +52,10 @@ Pipeline code refers only to the connection name. Private keys and passphrases a
 | `stackId` | Resource Manager stack OCID |
 | `mode` | `plan`, `apply`, or `destroy` |
 | `displayName` | optional OCI job display name |
-| `planOperationKey` | apply a successful plan from the same Jenkins build |
+| `planOperationKey` | apply a successful plan from the same Jenkins build: the plan stage's explicit `operationKey` |
 | `planJobId` | direct OCI plan job OCID alternative |
 | `autoApprove` | explicitly permit apply without a prior plan; required for `destroy` |
-| `operationKey` | build-local correlation key |
+| `operationKey` | build-local key of this operation, unique per provision step in a build; set it whenever another stage refers to this operation |
 | `waitForCompletion` | wait now or continue after submission |
 | `pollingSeconds` | polling interval |
 | `timeoutMinutes` | maximum Jenkins-side wait |
@@ -97,6 +97,14 @@ stage('Apply') {
 
 An apply without a saved plan requires explicit `autoApprove: true`.
 
+## Operation keys
+
+Each `ociRmProvision` step records its OCI job in the build under an `operationKey`. `planOperationKey` and `ociRmAwait` find an earlier job by that key, so the referenced stage must set an explicit `operationKey`, as in all examples.
+
+Without `operationKey`, the step derives a default key from the provider (`oci-rm`), the stack and the job parameters (`mode`, `displayName`, `planOperationKey`, `planJobId`, `autoApprove`), so a plan and an apply on the same stack get different keys. Default keys are not meant to be written in a Jenkinsfile: do not reference them.
+
+A key can be used by only one provision step per build. A second step with the same key, including the same step re-run inside `retry`, fails with an error asking for a distinct `operationKey`.
+
 ## Destroy
 
 OCI Resource Manager destroy jobs cannot be based on a reviewed plan: they always delete every resource of the stack. The step therefore refuses `mode: 'destroy'` unless the stage options also set `autoApprove: true`, and fails before contacting OCI:
@@ -120,7 +128,7 @@ Guard such a stage with an `input` step or a `when` condition if the stack must 
 
 ## Examples
 
-- [asynchronous plan → await → apply](examples/Jenkinsfile.oci-resource-manager)
+- [asynchronous plan with display name → await → apply](examples/Jenkinsfile.oci-resource-manager)
 - [plan only](examples/Jenkinsfile.plan-only)
 - [plan → apply](examples/Jenkinsfile.plan-apply)
 - [asynchronous plan → await → apply](examples/Jenkinsfile.async-plan-apply)
