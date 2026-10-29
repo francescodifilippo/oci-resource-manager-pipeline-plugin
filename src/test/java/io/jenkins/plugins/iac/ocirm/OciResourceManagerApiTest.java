@@ -25,8 +25,13 @@ class OciResourceManagerApiTest {
    ((CreateApplyJobOperationDetails)x.getJobOperationDetails()).getExecutionPlanStrategy());
  }
  @Test void buildsDestroy(){
-  CreateJobDetails x=OciResourceManagerApi.buildDetails("ocid1.ormstack.oc1..example","destroy",null,null,false);
+  CreateJobDetails x=OciResourceManagerApi.buildDetails("ocid1.ormstack.oc1..example","destroy",null,null,true);
   assertEquals(Job.Operation.Destroy,x.getOperation());
   assertInstanceOf(CreateDestroyJobOperationDetails.class,x.getJobOperationDetails());
+ }
+ @Test void destroyRequiresExplicitApproval(){
+  var e=assertThrows(IllegalArgumentException.class,()->OciResourceManagerApi.buildDetails(
+   "ocid1.ormstack.oc1..example","destroy",null,null,false));
+  assertTrue(e.getMessage().contains("autoApprove: true"),e.getMessage());
  }
 }

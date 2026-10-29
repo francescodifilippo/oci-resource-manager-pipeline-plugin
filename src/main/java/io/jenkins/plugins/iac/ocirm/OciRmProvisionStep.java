@@ -41,6 +41,7 @@ public final class OciRmProvisionStep extends AbstractProvisionStep {
    throw new IllegalArgumentException("Use either planOperationKey or planJobId, not both");
   if("apply".equals(mode)&&planOperationKey==null&&planJobId==null&&!autoApprove)
    throw new IllegalArgumentException("OCI apply requires planOperationKey/planJobId or autoApprove=true");
+  if("destroy".equals(mode)&&!autoApprove)throw new IllegalArgumentException(OciResourceManagerApi.DESTROY_NEEDS_APPROVAL);
   Map<String,String> p=new LinkedHashMap<>();p.put("mode",mode);
   if(displayName!=null)p.put("displayName",displayName);
   if(planOperationKey!=null)p.put("planOperationKey",planOperationKey);

@@ -1,0 +1,22 @@
+pipeline {
+    agent none
+    stages {
+        stage('Confirm destroy') {
+            steps { input message: 'Destroy every resource of the OCI stack?', ok: 'Destroy' }
+        }
+        stage('OCI destroy') {
+            options {
+                ociRmProvision(
+                    connection: 'oci-prod',
+                    stackId: 'ocid1.ormstack.oc1.eu-frankfurt-1.example',
+                    mode: 'destroy',
+                    autoApprove: true,
+                    operationKey: 'oci-destroy',
+                    waitForCompletion: true,
+                    timeoutMinutes: 90
+                )
+            }
+            steps { echo 'OCI destroy completed.' }
+        }
+    }
+}
