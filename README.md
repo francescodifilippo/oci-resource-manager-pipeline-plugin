@@ -33,10 +33,14 @@ In **Manage Jenkins → System → OCI Resource Manager connections**, configure
 - tenancy OCID;
 - user OCID;
 - API key fingerprint;
-- Jenkins Secret Text credential containing the PEM private key;
+- Jenkins credential containing the PEM private key: preferably a **Secret file** (upload the `.pem` file); a **Secret text** credential is still accepted;
 - optional Secret Text credential containing the private-key passphrase.
 
-Pipeline code refers only to the connection name. Private keys and passphrases are never persisted in `RemoteOperation`.
+Only administrators can list credentials in the connection form.
+
+The Secret text field is a single-line input, so a pasted PEM loses its line breaks. The plugin restores them when the value is a plain `-----BEGIN …-----` / `-----END …-----` block with a base64 body. Legacy encrypted PEM files with `Proc-Type`/`DEK-Info` headers cannot be restored this way: store them as a Secret file.
+
+Pipeline code refers only to the connection name. Private keys and passphrases are never persisted in `RemoteOperation` and never written to the build log.
 
 ## Pipeline syntax
 
