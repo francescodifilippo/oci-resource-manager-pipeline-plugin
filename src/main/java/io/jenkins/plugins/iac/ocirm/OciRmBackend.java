@@ -1,15 +1,28 @@
 package io.jenkins.plugins.iac.ocirm;
 
 import com.oracle.bmc.model.BmcException;
-import com.oracle.bmc.resourcemanager.ResourceManagerClient;
+import com.oracle.bmc.resourcemanager.ResourceManager;
 import hudson.Extension;
 import hudson.model.Run;
 import io.jenkins.plugins.iac.core.*;
 import java.util.*;
+import java.util.function.BiFunction;
 
 @Extension public final class OciRmBackend implements IacBackend {
  @Override public String id(){return "oci-rm";}
  @Override public boolean supportsIdempotentSubmit(){return true;}
+ /** Opens a client for a connection name; replaced by tests with a fake. */
+ BiFunction<String,Run<?,?>,ResourceManager> clients=(connection,run)->OciRmConnections.get().client(connection,run);
+
+ /** A stackId is used as given; a stackName is looked up among the active stacks of compartmentId (read-only). */
+ @Override public ResolvedTarget resolve(String connectionId,String targetId,Map<String,String> parameters,Run<?,?> run) throws Exception {
+  if(targetId!=null)return new ResolvedTarget(targetId,parameters);
+  String name=blankToNull(parameters.get("stackName")),compartment=blankToNull(parameters.get("compartmentId"));
+  if(name==null||compartment==null)throw new IllegalArgumentException("ociRmProvision needs stackId, or stackName with compartmentId");
+  try(ResourceManager client=clients.apply(connectionId,run)){
+   return new ResolvedTarget(new OciResourceManagerApi(client).stackIdByName(compartment,name),parameters);
+  }
+ }
 
  @Override public Map<String,String> operationMetadata(SubmissionRequest request){
   Map<String,String> metadata=new LinkedHashMap<>();
@@ -23,12 +36,12 @@ import java.util.*;
   String mode=p.getOrDefault("mode","plan");
   String planJobId=resolvePlanJobId(mode,p,request,run);
   boolean autoApprove=Boolean.parseBoolean(p.getOrDefault("autoApprove","false"));
-  try(ResourceManagerClient client=OciRmConnections.get().client(request.connectionId(),run)){
+  try(ResourceManager client=clients.apply(request.connectionId(),run)){
    return new OciResourceManagerApi(client).submit(request.targetId(),mode,p.get("displayName"),planJobId,autoApprove,request.requestToken());
   }
  }
  @Override public JobResult status(RemoteOperation operation,Run<?,?> run) throws Exception {
-  try(ResourceManagerClient client=OciRmConnections.get().client(operation.connectionId(),run)){
+  try(ResourceManager client=clients.apply(operation.connectionId(),run)){
    return new OciResourceManagerApi(client).status(operation.remoteId());
   }
  }
