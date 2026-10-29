@@ -13,4 +13,11 @@ class OciJobResultMapperTest {
   var failed=OciJobResultMapper.from("job-3",Job.LifecycleState.Failed);
   assertTrue(failed.completed());assertFalse(failed.successful());
  }
+ @Test void mapsUnknownLifecycleStatesToUnknownAndKeepsPolling(){
+  for(Job.LifecycleState state:new Job.LifecycleState[]{null,Job.LifecycleState.UnknownEnumValue,Job.LifecycleState.create("SOMETHING_NEW")}){
+   var x=OciJobResultMapper.from("job-4",state);
+   assertEquals("UNKNOWN",x.status(),String.valueOf(state));
+   assertFalse(x.completed());assertFalse(x.successful());assertEquals("job-4",x.id());
+  }
+ }
 }
