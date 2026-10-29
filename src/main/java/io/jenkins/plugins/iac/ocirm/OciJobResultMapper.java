@@ -10,7 +10,8 @@ final class OciJobResultMapper {
   return from(job.getId(),job.getLifecycleState());
  }
  static JobResult from(String id,Job.LifecycleState state){
-  String value=state==null?"UNKNOWN":state.getValue();
+  // States newer than this SDK map to UnknownEnumValue, whose value is null: keep polling as UNKNOWN.
+  String value=state==null||state==Job.LifecycleState.UnknownEnumValue||state.getValue()==null?"UNKNOWN":state.getValue();
   boolean successful="SUCCEEDED".equals(value);
   boolean completed=successful||"FAILED".equals(value)||"CANCELED".equals(value);
   return new JobResult(id,value,completed,successful,false);
