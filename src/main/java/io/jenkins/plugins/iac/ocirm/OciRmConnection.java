@@ -1,12 +1,21 @@
 package io.jenkins.plugins.iac.ocirm;
 
+import com.cloudbees.plugins.credentials.CredentialsMatchers;
+import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import hudson.Extension;
 import hudson.model.Describable;
 import hudson.model.Descriptor;
+import hudson.security.ACL;
+import hudson.util.ListBoxModel;
 import io.jenkins.plugins.iac.core.Identifiers;
 import java.io.Serializable;
+import java.util.List;
+import jenkins.model.Jenkins;
+import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
+import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.verb.POST;
 
 public final class OciRmConnection implements Describable<OciRmConnection>, Serializable {
  private static final long serialVersionUID=1L;
@@ -33,9 +42,23 @@ public final class OciRmConnection implements Describable<OciRmConnection>, Seri
   passphraseCredentialsId=Identifiers.optional(value,"passphraseCredentialsId");
  }
  @Override public Descriptor<OciRmConnection> getDescriptor(){
-  return jenkins.model.Jenkins.get().getDescriptorByType(DescriptorImpl.class);
+  return Jenkins.get().getDescriptorByType(DescriptorImpl.class);
  }
  @Extension public static final class DescriptorImpl extends Descriptor<OciRmConnection>{
   @Override public String getDisplayName(){return "OCI Resource Manager connection";}
+  /** Global connections are admin-only; others only see the value already saved. */
+  @POST public ListBoxModel doFillPrivateKeyCredentialsIdItems(@QueryParameter String privateKeyCredentialsId){
+   return secretTextItems(privateKeyCredentialsId);
+  }
+  @POST public ListBoxModel doFillPassphraseCredentialsIdItems(@QueryParameter String passphraseCredentialsId){
+   return secretTextItems(passphraseCredentialsId);
+  }
+  private static ListBoxModel secretTextItems(String current){
+   StandardListBoxModel model=new StandardListBoxModel();
+   if(!Jenkins.get().hasPermission(Jenkins.ADMINISTER))return model.includeCurrentValue(current);
+   return model.includeEmptyValue()
+     .includeMatchingAs(ACL.SYSTEM2,Jenkins.get(),StringCredentials.class,List.of(),CredentialsMatchers.always())
+     .includeCurrentValue(current);
+  }
  }
 }
