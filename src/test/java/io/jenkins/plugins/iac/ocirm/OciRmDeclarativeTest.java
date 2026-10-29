@@ -13,6 +13,7 @@ import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 @WithJenkins
 class OciRmDeclarativeTest {
  private static final String STACK="ocid1.ormstack.oc1..example";
+ private static final String COMPARTMENT="ocid1.compartment.oc1..example";
  private JenkinsRule j;
 
  @BeforeEach void setUp(JenkinsRule rule){j=rule;}
@@ -33,6 +34,30 @@ class OciRmDeclarativeTest {
   j.assertLogContains("Unknown OCI Resource Manager connection: oci",b);
   j.assertLogNotContains("set autoApprove: true",b);
   j.assertLogNotContains("destroy body",b);
+ }
+
+ @Test void stackIdOrStackNameIsRequired() throws Exception {
+  assertRejected("no-stack","connection: 'oci'","ociRmProvision needs stackId, or stackName with compartmentId");
+ }
+ @Test void stackIdAndStackNameAreExclusive() throws Exception {
+  assertRejected("both","connection: 'oci', stackId: '"+STACK+"', stackName: 'network', compartmentId: '"+COMPARTMENT+"'",
+    "Use either stackId or stackName in the ociRmProvision stage options, not both");
+ }
+ @Test void stackNameNeedsCompartmentId() throws Exception {
+  assertRejected("no-compartment","connection: 'oci', stackName: 'network'","stackName needs compartmentId");
+ }
+ @Test void compartmentIdIsRejectedWithStackId() throws Exception {
+  assertRejected("stray-compartment","connection: 'oci', stackId: '"+STACK+"', compartmentId: '"+COMPARTMENT+"'",
+    "compartmentId is used only with stackName");
+ }
+
+ private void assertRejected(String name,String args,String message) throws Exception {
+  WorkflowRun b=j.buildAndAssertStatus(Result.FAILURE,pipeline(name,
+    "stage('plan') {\n options { ociRmProvision("+args+") }\n steps { echo 'plan body' }\n}"));
+  j.assertLogContains(message,b);
+  j.assertLogNotContains("Unknown OCI Resource Manager connection",b);
+  j.assertLogNotContains("submitting target",b);
+  j.assertLogNotContains("plan body",b);
  }
 
  private WorkflowJob pipeline(String name,String stages) throws Exception {

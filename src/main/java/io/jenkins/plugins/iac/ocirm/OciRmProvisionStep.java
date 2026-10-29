@@ -10,14 +10,19 @@ import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
-/** Declarative stage option: options { ociRmProvision(...) } */
+/**
+ * Declarative stage option: options { ociRmProvision(...) }. The stack is either {@code stackId} or
+ * {@code stackName} with {@code compartmentId}, which {@link OciRmBackend#resolve} looks up when the stage runs.
+ */
 public final class OciRmProvisionStep extends AbstractProvisionStep {
- private String mode="plan",displayName,planOperationKey,planJobId;
+ private String mode="plan",displayName,planOperationKey,planJobId,stackName,compartmentId;
  private boolean autoApprove;
 
  @DataBoundConstructor public OciRmProvisionStep(String connection,String stackId){super(connection,stackId);}
  public String getConnection(){return getConnectionId();}
  public String getStackId(){return getTargetId();}
+ public String getStackName(){return stackName;}
+ public String getCompartmentId(){return compartmentId;}
  public String getMode(){return mode;}
  public String getDisplayName(){return displayName;}
  public String getPlanOperationKey(){return planOperationKey;}
@@ -28,6 +33,8 @@ public final class OciRmProvisionStep extends AbstractProvisionStep {
   if(!Set.of("plan","apply","destroy").contains(value))throw new IllegalArgumentException("mode must be plan/apply/destroy");
   mode=value;
  }
+ @DataBoundSetter public void setStackName(String value){stackName=optionalText(value,"stackName",255);}
+ @DataBoundSetter public void setCompartmentId(String value){compartmentId=Identifiers.optionalOpaque(value,"compartmentId");}
  @DataBoundSetter public void setDisplayName(String value){displayName=optionalText(value,"displayName",255);}
  @DataBoundSetter public void setPlanOperationKey(String value){planOperationKey=Identifiers.optional(value,"planOperationKey");}
  @DataBoundSetter public void setPlanJobId(String value){planJobId=Identifiers.optionalOpaque(value,"planJobId");}
@@ -35,6 +42,15 @@ public final class OciRmProvisionStep extends AbstractProvisionStep {
 
  @Override protected String provider(){return "oci-rm";}
  @Override protected Map<String,String> parameters(){
+  String stackId=getTargetId();
+  if(stackId!=null&&stackName!=null)
+   throw new IllegalArgumentException("Use either stackId or stackName in the ociRmProvision stage options, not both");
+  if(stackId==null&&stackName==null)
+   throw new IllegalArgumentException("ociRmProvision needs stackId, or stackName with compartmentId, in the stage options");
+  if(stackName!=null&&compartmentId==null)
+   throw new IllegalArgumentException("stackName needs compartmentId (OCID of the compartment that contains the stack) in the ociRmProvision stage options");
+  if(stackId!=null&&compartmentId!=null)
+   throw new IllegalArgumentException("compartmentId is used only with stackName; remove it from the ociRmProvision stage options when stackId is set");
   if(!"apply".equals(mode)&&(planOperationKey!=null||planJobId!=null))
    throw new IllegalArgumentException("planOperationKey/planJobId are valid only for mode=apply");
   if("apply".equals(mode)&&planOperationKey!=null&&planJobId!=null)
@@ -43,6 +59,7 @@ public final class OciRmProvisionStep extends AbstractProvisionStep {
    throw new IllegalArgumentException("OCI apply requires planOperationKey/planJobId or autoApprove=true");
   if("destroy".equals(mode)&&!autoApprove)throw new IllegalArgumentException(OciResourceManagerApi.DESTROY_NEEDS_APPROVAL);
   Map<String,String> p=new LinkedHashMap<>();p.put("mode",mode);
+  if(stackName!=null){p.put("stackName",stackName);p.put("compartmentId",compartmentId);}
   if(displayName!=null)p.put("displayName",displayName);
   if(planOperationKey!=null)p.put("planOperationKey",planOperationKey);
   if(planJobId!=null)p.put("planJobId",planJobId);
