@@ -3,19 +3,23 @@ package io.jenkins.plugins.iac.ocirm;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.cloudbees.plugins.credentials.CredentialsScope;
+import com.cloudbees.plugins.credentials.SecretBytes;
 import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
 import hudson.ExtensionList;
+import hudson.model.FreeStyleBuild;
 import hudson.model.User;
 import hudson.security.ACL;
 import hudson.security.ACLContext;
 import hudson.util.ListBoxModel;
 import hudson.util.Secret;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import jenkins.model.Jenkins;
 import org.htmlunit.html.DomElement;
 import org.htmlunit.html.DomNode;
 import org.htmlunit.html.HtmlForm;
 import org.htmlunit.html.HtmlPage;
+import org.jenkinsci.plugins.plaincredentials.impl.FileCredentialsImpl;
 import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,6 +30,7 @@ import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 @WithJenkins
 class OciRmConnectionsTest {
  private static final String TENANCY="ocid1.tenancy.oc1..testtenancy";
+ private static final String PEM="-----BEGIN PRIVATE KEY-----\n"+"QUJD".repeat(16)+"\n"+"QUJD".repeat(4)+"\n-----END PRIVATE KEY-----\n";
  private JenkinsRule j;
 
  @BeforeEach void setUp(JenkinsRule rule) throws Exception {
@@ -33,6 +38,9 @@ class OciRmConnectionsTest {
   var store=SystemCredentialsProvider.getInstance().getCredentials();
   store.add(new StringCredentialsImpl(CredentialsScope.GLOBAL,"oci-key","OCI key",Secret.fromString("not-a-real-key")));
   store.add(new StringCredentialsImpl(CredentialsScope.GLOBAL,"oci-pass","OCI passphrase",Secret.fromString("not-a-real-passphrase")));
+  store.add(new StringCredentialsImpl(CredentialsScope.GLOBAL,"oci-key-flat","OCI key on one line",Secret.fromString(PEM.replace("\n",""))));
+  store.add(new FileCredentialsImpl(CredentialsScope.GLOBAL,"oci-key-file","OCI key file","oci_api_key.pem",
+    SecretBytes.fromBytes(PEM.getBytes(StandardCharsets.UTF_8))));
   SystemCredentialsProvider.getInstance().save();
  }
 
@@ -81,13 +89,25 @@ class OciRmConnectionsTest {
     .grant(Jenkins.ADMINISTER).everywhere().to("admin").grant(Jenkins.READ).everywhere().to("reader"));
   OciRmConnection.DescriptorImpl d=ExtensionList.lookupSingleton(OciRmConnection.DescriptorImpl.class);
   try(ACLContext ctx=ACL.as(User.getById("admin",true))){
-   assertTrue(values(d.doFillPrivateKeyCredentialsIdItems("")).contains("oci-key"),"admin sees credentials");
-   assertTrue(values(d.doFillPassphraseCredentialsIdItems("")).contains("oci-pass"),"admin sees credentials");
+   List<String> keys=values(d.doFillPrivateKeyCredentialsIdItems(""));
+   assertTrue(keys.containsAll(List.of("oci-key","oci-key-file")),"admin sees Secret Text and Secret File credentials: "+keys);
+   List<String> passphrases=values(d.doFillPassphraseCredentialsIdItems(""));
+   assertTrue(passphrases.contains("oci-pass"),"admin sees credentials");
+   assertFalse(passphrases.contains("oci-key-file"),"passphrase must be Secret Text");
   }
   try(ACLContext ctx=ACL.as(User.getById("reader",true))){
    assertEquals(List.of("saved-key"),values(d.doFillPrivateKeyCredentialsIdItems("saved-key")),"non-admin only sees the current value");
    assertEquals(List.of("saved-pass"),values(d.doFillPassphraseCredentialsIdItems("saved-pass")),"non-admin only sees the current value");
   }
+ }
+
+ @Test void readsPrivateKeyFromSecretFileOrSecretText() throws Exception {
+  FreeStyleBuild run=j.buildAndAssertSuccess(j.createFreeStyleProject());
+  assertEquals(PEM,new String(OciRmConnections.privateKey("oci-key-file",run),StandardCharsets.UTF_8));
+  assertEquals(PEM,new String(OciRmConnections.privateKey("oci-key-flat",run),StandardCharsets.UTF_8));
+  assertEquals("not-a-real-key",new String(OciRmConnections.privateKey("oci-key",run),StandardCharsets.UTF_8));
+  var missing=assertThrows(IllegalArgumentException.class,()->OciRmConnections.privateKey("oci-key-missing",run));
+  assertTrue(missing.getMessage().contains("Secret File or Secret Text"),missing.getMessage());
  }
 
  private static List<String> values(ListBoxModel items){return items.stream().map(o->o.value).toList();}
