@@ -50,7 +50,7 @@ Pipeline code refers only to the connection name. Private keys and passphrases a
 | `displayName` | optional OCI job display name |
 | `planOperationKey` | apply a successful plan from the same Jenkins build |
 | `planJobId` | direct OCI plan job OCID alternative |
-| `autoApprove` | explicitly permit apply without a prior plan |
+| `autoApprove` | explicitly permit apply without a prior plan; required for `destroy` |
 | `operationKey` | build-local correlation key |
 | `waitForCompletion` | wait now or continue after submission |
 | `pollingSeconds` | polling interval |
@@ -93,12 +93,34 @@ stage('Apply') {
 
 An apply without a saved plan requires explicit `autoApprove: true`.
 
+## Destroy
+
+OCI Resource Manager destroy jobs cannot be based on a reviewed plan: they always delete every resource of the stack. The step therefore refuses `mode: 'destroy'` unless the stage options also set `autoApprove: true`, and fails before contacting OCI:
+
+```groovy
+stage('Destroy') {
+  options {
+    ociRmProvision(
+      connection: 'oci-prod',
+      stackId: 'ocid1.ormstack.oc1.eu-frankfurt-1.example',
+      mode: 'destroy',
+      autoApprove: true,
+      operationKey: 'oci-destroy'
+    )
+  }
+  steps { echo 'Destroy completed' }
+}
+```
+
+Guard such a stage with an `input` step or a `when` condition if the stack must not be destroyed by accident.
+
 ## Examples
 
 - [asynchronous plan → await → apply](examples/Jenkinsfile.oci-resource-manager)
 - [plan only](examples/Jenkinsfile.plan-only)
 - [plan → apply](examples/Jenkinsfile.plan-apply)
 - [asynchronous plan → await → apply](examples/Jenkinsfile.async-plan-apply)
+- [destroy with explicit approval](examples/Jenkinsfile.destroy)
 
 ## Asynchronous execution
 
