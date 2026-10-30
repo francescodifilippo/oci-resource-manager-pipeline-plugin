@@ -3,7 +3,9 @@ package io.jenkins.plugins.iac.ocirm;
 import com.oracle.bmc.resourcemanager.ResourceManager;
 import com.oracle.bmc.resourcemanager.model.*;
 import com.oracle.bmc.resourcemanager.requests.CreateJobRequest;
+import com.oracle.bmc.resourcemanager.requests.CreateStackRequest;
 import com.oracle.bmc.resourcemanager.requests.GetJobRequest;
+import com.oracle.bmc.resourcemanager.requests.GetStackRequest;
 import com.oracle.bmc.resourcemanager.requests.ListStacksRequest;
 import com.oracle.bmc.resourcemanager.responses.ListStacksResponse;
 import io.jenkins.plugins.iac.core.JobResult;
@@ -44,6 +46,32 @@ final class OciResourceManagerApi {
   if(ids.size()>1)throw new IllegalArgumentException(ids.size()+" active OCI Resource Manager stacks are named '"+name+
     "' in compartment "+compartmentId+" "+ids+"; use stackId");
   return ids.get(0);
+ }
+
+ /**
+  * Stacks of the compartment whose display name is exactly {@code name}, in any state except DELETING and
+  * DELETED, every page read. A stack still CREATING, or one that FAILED, counts: creating another next to it
+  * would make the name ambiguous.
+  */
+ List<StackSummary> stacksNamed(String compartmentId,String name){
+  List<StackSummary> stacks=new ArrayList<>();
+  String page=null;
+  do{
+   ListStacksResponse response=client.listStacks(ListStacksRequest.builder().compartmentId(compartmentId)
+     .displayName(name).page(page).build());
+   if(response.getItems()!=null)for(StackSummary stack:response.getItems())
+    if(name.equals(stack.getDisplayName())&&stack.getLifecycleState()!=Stack.LifecycleState.Deleting
+      &&stack.getLifecycleState()!=Stack.LifecycleState.Deleted)stacks.add(stack);
+   page=response.getOpcNextPage();
+  }while(page!=null&&!page.isEmpty());
+  return stacks;
+ }
+ /** The retry token makes a repeated request (for example after a Jenkins restart) return the same stack. */
+ Stack createStack(CreateStackDetails details,String retryToken){
+  return client.createStack(CreateStackRequest.builder().createStackDetails(details).opcRetryToken(retryToken).build()).getStack();
+ }
+ Stack getStack(String stackId){
+  return client.getStack(GetStackRequest.builder().stackId(stackId).build()).getStack();
  }
 
  static CreateJobDetails buildDetails(String stackId,String mode,String displayName,String planJobId,boolean autoApprove){
