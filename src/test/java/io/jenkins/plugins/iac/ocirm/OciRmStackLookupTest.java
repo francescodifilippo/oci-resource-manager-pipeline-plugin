@@ -7,6 +7,7 @@ import com.oracle.bmc.resourcemanager.requests.ListStacksRequest;
 import io.jenkins.plugins.iac.core.ResolvedTarget;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 class OciRmStackLookupTest {
@@ -17,6 +18,8 @@ class OciRmStackLookupTest {
  private static String lookup(FakeResourceManager fake,String name){
   return new OciResourceManagerApi(fake.client()).stackIdByName(COMPARTMENT,name);
  }
+
+ @AfterEach void restoreClients(){OciRmBackend.clients=OciRmBackend.CONNECTION_CLIENTS;}
 
  @Test void oneMatchListsActiveStacksOfTheCompartmentByName(){
   FakeResourceManager fake=FakeResourceManager.withPages(List.of(stack(NETWORK,"network")));
@@ -61,7 +64,7 @@ class OciRmStackLookupTest {
  @Test void backendResolvesStackNameAndClosesTheClient() throws Exception {
   FakeResourceManager fake=FakeResourceManager.withPages(List.of(stack(NETWORK,"network"),stack(OTHER,"other")));
   OciRmBackend backend=new OciRmBackend();
-  backend.clients=(connection,run)->{assertEquals("oci",connection);return fake.client();};
+  OciRmBackend.clients=(connection,run)->{assertEquals("oci",connection);return fake.client();};
   ResolvedTarget resolved=backend.resolve("oci",null,BY_NAME,null);
   assertEquals(NETWORK,resolved.targetId());
   assertEquals(BY_NAME,resolved.parameters());
@@ -70,13 +73,13 @@ class OciRmStackLookupTest {
  @Test void backendClosesTheClientWhenLookupFails(){
   FakeResourceManager fake=FakeResourceManager.withPages(List.of());
   OciRmBackend backend=new OciRmBackend();
-  backend.clients=(connection,run)->fake.client();
+  OciRmBackend.clients=(connection,run)->fake.client();
   assertThrows(IllegalArgumentException.class,()->backend.resolve("oci",null,BY_NAME,null));
   assertEquals(1,fake.closed.get());
  }
  @Test void backendUsesStackIdWithoutCallingOci() throws Exception {
   OciRmBackend backend=new OciRmBackend();
-  backend.clients=(connection,run)->{throw new AssertionError("no OCI client expected");};
+  OciRmBackend.clients=(connection,run)->{throw new AssertionError("no OCI client expected");};
   Map<String,String> parameters=Map.of("mode","apply","autoApprove","true");
   ResolvedTarget resolved=backend.resolve("oci",NETWORK,parameters,null);
   assertEquals(NETWORK,resolved.targetId());
@@ -84,7 +87,7 @@ class OciRmStackLookupTest {
  }
  @Test void backendRequiresStackIdOrName(){
   OciRmBackend backend=new OciRmBackend();
-  backend.clients=(connection,run)->{throw new AssertionError("no OCI client expected");};
+  OciRmBackend.clients=(connection,run)->{throw new AssertionError("no OCI client expected");};
   assertThrows(IllegalArgumentException.class,()->backend.resolve("oci",null,Map.of("mode","plan","stackName","network"),null));
  }
 }

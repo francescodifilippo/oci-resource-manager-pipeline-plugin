@@ -7,13 +7,13 @@ import com.oracle.bmc.resourcemanager.model.CreateObjectStorageConfigSourceDetai
 import com.oracle.bmc.resourcemanager.model.CreateStackDetails;
 import com.oracle.bmc.resourcemanager.model.Stack.LifecycleState;
 import com.oracle.bmc.resourcemanager.model.StackSummary;
-import hudson.ExtensionList;
 import hudson.model.Result;
 import java.util.List;
 import java.util.Map;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
@@ -34,6 +34,7 @@ class OciRmStackDeclarativeTest {
  private JenkinsRule j;
 
  @BeforeEach void setUp(JenkinsRule rule){j=rule;}
+ @AfterEach void restoreClients(){OciRmBackend.clients=OciRmBackend.CONNECTION_CLIENTS;}
 
  @Test void createsAStackFromGitAndWaitsUntilActive() throws Exception {
   FakeResourceManager fake=fakeOci(List.of());
@@ -194,7 +195,7 @@ class OciRmStackDeclarativeTest {
 
  private FakeResourceManager fakeOci(List<StackSummary> stacks){
   FakeResourceManager fake=FakeResourceManager.withPages(stacks);
-  ExtensionList.lookupSingleton(OciRmBackend.class).clients=(connection,run)->fake.client();
+  OciRmBackend.clients=(connection,run)->fake.client();
   return fake;
  }
  private static String stage(String source){

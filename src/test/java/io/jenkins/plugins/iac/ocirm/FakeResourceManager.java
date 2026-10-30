@@ -18,6 +18,7 @@ import java.lang.reflect.Proxy;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -39,6 +40,10 @@ final class FakeResourceManager {
  final List<StackSummary> concurrent=new CopyOnWriteArrayList<>();
  /** Leaves created stacks out of listStacks, as a list that does not show a new stack yet. */
  volatile boolean hideCreated;
+ /** When set, the next createStack creates the stack and then waits until interrupted, as a request whose response is lost. */
+ volatile boolean holdCreate;
+ /** Counted down when createStack is held. */
+ final CountDownLatch held=new CountDownLatch(1);
  private final Map<String,StackSummary> created=Collections.synchronizedMap(new LinkedHashMap<>());
  private final Map<String,String> createdByRetryToken=new ConcurrentHashMap<>();
  final AtomicInteger closed=new AtomicInteger();
@@ -82,7 +87,7 @@ final class FakeResourceManager {
    items.removeIf(s->s.getLifecycleState()!=null&&s.getLifecycleState()!=request.getLifecycleState());
   return ListStacksResponse.builder().items(items).opcNextPage(last?null:"p"+(i+1)).build();
  }
- private CreateStackResponse createStack(CreateStackRequest request){
+ private CreateStackResponse createStack(CreateStackRequest request) throws InterruptedException {
   createStackRequests.add(request);
   String id=createdByRetryToken.computeIfAbsent(request.getOpcRetryToken(),token->{
    String newId="ocid1.ormstack.oc1..created"+(created.size()+1);
@@ -91,6 +96,11 @@ final class FakeResourceManager {
    states.put(newId,new ArrayDeque<>(createdStates));
    return newId;
   });
+  if(holdCreate){
+   holdCreate=false;
+   held.countDown();
+   new CountDownLatch(1).await();
+  }
   return CreateStackResponse.builder().stack(Stack.builder().id(id).lifecycleState(current(id,null)).build()).build();
  }
  private GetStackResponse getStack(GetStackRequest request){
