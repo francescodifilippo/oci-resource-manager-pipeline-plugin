@@ -4,12 +4,12 @@ import static io.jenkins.plugins.iac.ocirm.FakeResourceManager.stack;
 import static org.junit.jupiter.api.Assertions.*;
 import com.oracle.bmc.resourcemanager.model.CreateApplyJobOperationDetails;
 import com.oracle.bmc.resourcemanager.model.StackSummary;
-import hudson.ExtensionList;
 import hudson.model.Result;
 import java.util.List;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
@@ -27,6 +27,7 @@ class OciRmDeclarativeTest {
  private JenkinsRule j;
 
  @BeforeEach void setUp(JenkinsRule rule){j=rule;}
+ @AfterEach void restoreClients(){OciRmBackend.clients=OciRmBackend.CONNECTION_CLIENTS;}
 
  @Test void destroyWithoutAutoApproveFailsBeforeAnyOciCall() throws Exception {
   // No connection is configured: reaching the OCI client would fail with "Unknown OCI Resource Manager connection".
@@ -115,7 +116,7 @@ class OciRmDeclarativeTest {
 
  private FakeResourceManager fakeOci(List<StackSummary> stacks){
   FakeResourceManager fake=FakeResourceManager.withPages(stacks);
-  ExtensionList.lookupSingleton(OciRmBackend.class).clients=(connection,run)->fake.client();
+  OciRmBackend.clients=(connection,run)->fake.client();
   return fake;
  }
  private static String planByName(String name){

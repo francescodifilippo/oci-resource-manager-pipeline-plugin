@@ -11,8 +11,12 @@ import java.util.function.BiFunction;
 @Extension public final class OciRmBackend implements IacBackend {
  @Override public String id(){return "oci-rm";}
  @Override public boolean supportsIdempotentSubmit(){return true;}
- /** Opens a client for a connection name; replaced by tests with a fake. */
- BiFunction<String,Run<?,?>,ResourceManager> clients=(connection,run)->OciRmConnections.get().client(connection,run);
+ static final BiFunction<String,Run<?,?>,ResourceManager> CONNECTION_CLIENTS=(connection,run)->OciRmConnections.get().client(connection,run);
+ /**
+  * Opens a client for a connection name; replaced by tests with a fake. Static, so that a fake set before a restart
+  * is still in place when the resumed build runs.
+  */
+ static volatile BiFunction<String,Run<?,?>,ResourceManager> clients=CONNECTION_CLIENTS;
 
  /** A stackId is used as given; a stackName is looked up among the active stacks of compartmentId (read-only). */
  @Override public ResolvedTarget resolve(String connectionId,String targetId,Map<String,String> parameters,Run<?,?> run) throws Exception {

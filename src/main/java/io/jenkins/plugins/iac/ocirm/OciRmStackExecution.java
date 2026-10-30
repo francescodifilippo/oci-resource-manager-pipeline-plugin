@@ -3,7 +3,6 @@ package io.jenkins.plugins.iac.ocirm;
 import com.oracle.bmc.resourcemanager.ResourceManager;
 import com.oracle.bmc.resourcemanager.model.Stack;
 import com.oracle.bmc.resourcemanager.model.StackSummary;
-import hudson.ExtensionList;
 import hudson.model.Run;
 import io.jenkins.plugins.iac.core.AsyncBlockExecution;
 import java.io.IOException;
@@ -43,7 +42,7 @@ final class OciRmStackExecution extends AsyncBlockExecution {
 
  @Override protected boolean advance() throws Exception {
   Run<?,?> run=getContext().get(Run.class);
-  try(ResourceManager client=ExtensionList.lookupSingleton(OciRmBackend.class).clients.apply(connection,run)){
+  try(ResourceManager client=OciRmBackend.clients.apply(connection,run)){
    OciResourceManagerApi api=new OciResourceManagerApi(client);
    if(stackId==null&&!createRequested){
     StackSummary existing=findExisting(api);
