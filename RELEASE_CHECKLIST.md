@@ -15,16 +15,16 @@ Status: **pre-release**.
 - [x] Focused PLAN-only, PLAN→APPLY and asynchronous PLAN→AWAIT→APPLY examples
 - [ ] Validate OCI IAM guidance and job lifecycle mapping against a real non-production stack
 - [ ] Validate `ociRmStack` creation (Git and Object Storage sources), its restart behaviour, and the Object Storage access requirement against a real non-production tenancy
-- [ ] Confirm third-party notices for the bundled OCI Java SDK dependency set
+- [x] Confirm third-party notices for the bundled OCI Java SDK dependency set ([THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md))
 
 ## Before Jenkins hosting / first release
 
 - [ ] Release `iac-pipeline-api` first and replace the provider SNAPSHOT dependency with the released version
-- [ ] Complete resolved dependency-tree and bundled-license audit
+- [x] Complete resolved dependency-tree and bundled-license audit: the HPI bundles only the OCI SDK, resilience4j and vavr; Jersey, Jackson and HttpClient come from API plugins
 - [ ] Validate against a real non-production provider endpoint
-- [ ] Add deeper Pipeline restart/abort integration coverage
+- [x] Add deeper Pipeline restart/abort integration coverage (`OciRmStackRestartTest`; abort while polling is covered in the core)
 - [ ] Run Jenkins Plugin Compatibility Tester / plugin verifier
-- [ ] Perform an internal HPI installation on the target Jenkins baseline
+- [x] Perform an internal HPI installation on the target Jenkins baseline (2.568.3 on 2026-10-30: plugins resolved by the BOM, `agent none` Declarative builds; `otfWorkspace` and `terrakubeWorkspace` against a local stub, `ociRmStack` up to the real OCI endpoint (401 with a dummy key))
 - [ ] Open Jenkins plugin hosting request
 - [ ] After Jenkins forks the repository, update project/SCM URLs to the canonical `jenkinsci` repository
 - [ ] Obtain Jenkins repository release permissions
