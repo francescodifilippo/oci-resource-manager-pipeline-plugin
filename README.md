@@ -195,6 +195,12 @@ OCI IAM should grant only the Resource Manager and target-resource permissions n
 
 The plugin uses the OCI Java SDK directly and does not invoke the OCI CLI.
 
+## Possible future features
+
+These ideas are not planned and may never be implemented. They are listed so that the current scope is clear.
+
+- **Stack creation.** The plugin works only with stacks that already exist in Resource Manager. A future step could create a stack, or update its configuration, from a source such as a Git repository, and reuse an existing stack instead of creating a duplicate. Creating and configuring stacks is a different concern from running jobs on them, so this does not seem to belong in this plugin at the moment.
+
 ## Development
 
 ```bash
