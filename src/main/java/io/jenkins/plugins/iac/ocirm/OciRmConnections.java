@@ -54,9 +54,16 @@ import org.kohsuke.stapler.StaplerRequest2;
     .privateKeySupplier(()->new ByteArrayInputStream(privateKey));
   if(c.getPassphraseCredentialsId()!=null)
    auth.passphraseCharacters(secret(c.getPassphraseCredentialsId(),run,"private-key passphrase").toCharArray());
-  ResourceManagerClient client=ResourceManagerClient.builder().build(auth.build());
-  client.setRegion(c.getRegion());
-  return client;
+  // The SDK finds its HTTP client (Jersey) with ServiceLoader and the context class loader, which on a Jenkins
+  // thread does not see this plugin's libraries.
+  Thread thread=Thread.currentThread();
+  ClassLoader previous=thread.getContextClassLoader();
+  thread.setContextClassLoader(OciRmConnections.class.getClassLoader());
+  try{
+   ResourceManagerClient client=ResourceManagerClient.builder().build(auth.build());
+   client.setRegion(c.getRegion());
+   return client;
+  }finally{thread.setContextClassLoader(previous);}
  }
  /** PEM private key from a Secret File credential or, for compatibility, a Secret Text credential. Never logged. */
  static byte[] privateKey(String id,Run<?,?> run){
