@@ -14,6 +14,7 @@ Status: **pre-release**.
 - [x] Jenkins test-harness plugin wiring coverage
 - [x] Focused PLAN-only, PLAN→APPLY and asynchronous PLAN→AWAIT→APPLY examples
 - [ ] Validate OCI IAM guidance and job lifecycle mapping against a real non-production stack
+- [ ] Validate `ociRmStack` creation (Git and Object Storage sources), its restart behaviour, and the Object Storage access requirement against a real non-production tenancy
 - [ ] Confirm third-party notices for the bundled OCI Java SDK dependency set
 
 ## Before Jenkins hosting / first release

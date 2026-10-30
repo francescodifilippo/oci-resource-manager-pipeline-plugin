@@ -3,14 +3,14 @@
 **Plugin ID:** `oci-resource-manager-pipeline`  
 **Status:** pre-release
 
-Declarative Jenkins Pipeline integration for Oracle Cloud Infrastructure Resource Manager. It uses the OCI Java SDK and the shared [IaC Pipeline API](https://github.com/francescodifilippo/iac-pipeline-api-plugin) to run `PLAN`, `APPLY`, and `DESTROY` jobs with durable asynchronous execution.
+Declarative Jenkins Pipeline integration for Oracle Cloud Infrastructure Resource Manager. It uses the OCI Java SDK and the shared [IaC Pipeline API](https://github.com/francescodifilippo/iac-pipeline-api-plugin) to run `PLAN`, `APPLY`, and `DESTROY` jobs with durable asynchronous execution, and can create the stacks those jobs run on.
 
 ## Requirements
 
 - Jenkins 2.568.3 or newer
 - Java 21
 - `iac-pipeline-api` of the matching tested version
-- OCI Resource Manager stack
+- OCI Resource Manager stack, or a Git or Object Storage configuration source to create one with `ociRmStack`
 - OCI API-key identity with the required IAM permissions
 
 ## Installation
@@ -65,6 +65,29 @@ Pipeline code refers only to the connection name. Private keys and passphrases a
 ### `ociRmAwait`
 
 Waits for a previously submitted OCI operation using its `operationKey`.
+
+### `ociRmStack`
+
+Finds a stack by name, or creates it, and runs the stage once the stack is `ACTIVE`. It runs no job. See [Stack creation](#stack-creation).
+
+| Parameter | Purpose |
+| --- | --- |
+| `connection` | configured OCI connection; the stack is created in its tenancy |
+| `stackName` | exact display name of the stack |
+| `compartmentId` | OCID of the compartment that contains the stack |
+| `configurationSourceProviderId` | Git source: OCID of an existing Resource Manager configuration source provider |
+| `repositoryUrl` | Git source: repository URL |
+| `branchName` | Git source: optional branch; the repository's default branch otherwise |
+| `bucketName` | Object Storage source: bucket that contains the Terraform configuration |
+| `namespace` | Object Storage source: Object Storage namespace of the bucket |
+| `region` | Object Storage source: optional bucket region; the connection's region otherwise |
+| `workingDirectory` | optional directory of the Terraform configuration inside the source |
+| `terraformVersion` | optional Terraform version, for example `1.5.x` |
+| `description` | optional stack description |
+| `variables` | optional map of plain-text Terraform variables; never secrets |
+| `ifExists` | `keep` (default) or `fail` when the stack already exists |
+| `pollingSeconds` | polling interval while the stack is `CREATING` (default 10) |
+| `timeoutMinutes` | maximum wait for `ACTIVE` (default 30) |
 
 ## Plan → apply example
 
@@ -135,6 +158,74 @@ Allow group <group> to inspect orm-stacks in compartment <compartment>
 
 See [examples/Jenkinsfile.by-name](examples/Jenkinsfile.by-name).
 
+## Stack creation
+
+Each Resource Manager only manages its own tenancy. `ociRmStack` lets one Jenkins create stacks in several tenancies: configure one connection per tenancy and region, and choose the connection in the stage.
+
+```groovy
+stage('Stack') {
+  options {
+    ociRmStack(
+      connection: 'oci-tenant-a',
+      stackName: 'network',
+      compartmentId: 'ocid1.compartment.oc1..example',
+      configurationSourceProviderId: 'ocid1.ormconfigsourceprovider.oc1.eu-frankfurt-1.example',
+      repositoryUrl: 'https://github.com/example/infrastructure.git',
+      branchName: 'main',
+      workingDirectory: 'stacks/network',
+      variables: [vcn_cidr: '10.0.0.0/16', subnet_count: 3]
+    )
+  }
+  steps { echo 'Stack is active' }
+}
+```
+
+A later stage runs jobs on the stack with `ociRmProvision(stackName: 'network', compartmentId: ...)`, as described in [Stack names](#stack-names). See [examples/Jenkinsfile.create-stack](examples/Jenkinsfile.create-stack).
+
+### Configuration source
+
+Set exactly one source:
+
+- **Git:** `configurationSourceProviderId` and `repositoryUrl`, optionally `branchName`. The configuration source provider must already exist in OCI. The plugin does not create providers and never sends Git tokens to OCI.
+- **Object Storage:** `bucketName` and `namespace`, optionally `region`.
+
+`workingDirectory` applies to both sources. A zip upload is not supported: with `agent none` there is no workspace to read a file from.
+
+### Existing stacks
+
+When the stage runs, the plugin lists the stacks of the compartment (not its sub-compartments) whose display name is exactly `stackName`. Names are case-sensitive. Stacks that are `DELETING` or `DELETED` are ignored.
+
+- No stack: the plugin creates one and waits until it is `ACTIVE`.
+- One `ACTIVE` stack: with `ifExists: 'keep'` (default) the stage uses it. Its configuration and variables are not compared or changed. With `ifExists: 'fail'` the stage fails.
+- One `CREATING` stack: the stage waits for it instead of creating another.
+- One `FAILED` stack: the stage fails and shows its OCID. Delete the stack in OCI before running the stage again.
+- More than one stack: the stage fails and lists their OCIDs.
+
+The build log shows the stack OCID, for example `IaC oci-rm: created stack ocid1.ormstack.oc1...`.
+
+### Variables
+
+Stack variables are stored in plain text in Resource Manager, and anyone with `read orm-stacks` on the compartment can read them. Pass only non-secret values in `variables`. Numbers and booleans are turned into strings, as Resource Manager expects. The build log shows the variable names, never their values.
+
+### Concurrent builds and restarts
+
+OCI allows several stacks with the same name. If two builds create the same stack at the same time, the plugin lists the stacks again after creation and fails when it finds more than one. Prevent this with `disableConcurrentBuilds()` or a `lock` around the stage.
+
+The step holds no executor while it waits. Before the create request it saves an `opc-retry-token` with the build. After a Jenkins restart the step repeats the request with the same token, so that OCI returns the stack it already created instead of creating a second one. A restart before the request simply looks the stack up again.
+
+OCI keeps retry tokens for a limited time. After an unusually long controller outage, a repeated request may create a second stack; the check after creation then finds two stacks with the name and fails the stage, and the extra stack must be deleted by hand.
+
+### Permissions
+
+Creating a stack needs `manage orm-stacks` in the compartment. A Git source also needs `read orm-config-source-providers` in the compartment of the configuration source provider:
+
+```text
+Allow group <group> to manage orm-stacks in compartment <compartment>
+Allow group <group> to read orm-config-source-providers in compartment <provider-compartment>
+```
+
+For an Object Storage source, the Oracle Resource Manager policy reference names no bucket permission. Verify the required Object Storage access in your tenancy.
+
 ## Operation keys
 
 Each `ociRmProvision` step records its OCI job in the build under an `operationKey`. `planOperationKey` and `ociRmAwait` find an earlier job by that key, so the referenced stage must set an explicit `operationKey`, as in all examples.
@@ -167,6 +258,7 @@ Guard such a stage with an `input` step or a `when` condition if the stack must 
 ## Examples
 
 - [asynchronous plan with display name → await → apply](examples/Jenkinsfile.oci-resource-manager)
+- [stack creation from Git → plan by stack name](examples/Jenkinsfile.create-stack)
 - [plan only](examples/Jenkinsfile.plan-only)
 - [plan → apply](examples/Jenkinsfile.plan-apply)
 - [asynchronous plan → await → apply](examples/Jenkinsfile.async-plan-apply)
@@ -189,17 +281,13 @@ Operational reconciliation is still recommended after unusually long controller 
 
 Use Jenkins Credentials for the API private key and optional passphrase. Do not place PEM keys, passphrases, or tenancy secrets in Pipeline source. See [SECURITY.md](SECURITY.md).
 
-OCI IAM should grant only the Resource Manager and target-resource permissions needed by the stack. Stages that use `stackName` also need `inspect orm-stacks` in the stack's compartment.
+OCI IAM should grant only the Resource Manager and target-resource permissions needed by the stack. Stages that use `stackName` also need `inspect orm-stacks` in the stack's compartment. `ociRmStack` needs `manage orm-stacks` (see [Permissions](#permissions)); grant it only to connections whose pipelines create stacks.
+
+Stack `variables` are visible in plain text in OCI. Never put secrets in them.
 
 ## Compatibility
 
 The plugin uses the OCI Java SDK directly and does not invoke the OCI CLI.
-
-## Possible future features
-
-These ideas are not planned and may never be implemented. They are listed so that the current scope is clear.
-
-- **Stack creation.** The plugin works only with stacks that already exist in Resource Manager. A future step could create a stack, or update its configuration, from a source such as a Git repository, and reuse an existing stack instead of creating a duplicate. Creating and configuring stacks is a different concern from running jobs on them, so this does not seem to belong in this plugin at the moment.
 
 ## Development
 

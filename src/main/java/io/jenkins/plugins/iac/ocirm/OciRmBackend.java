@@ -47,11 +47,13 @@ import java.util.function.BiFunction;
  }
  /** The OCI SDK reports service and network errors as BmcException, a RuntimeException the core default ignores. */
  @Override public boolean isTransient(Exception e){
-  if(e instanceof BmcException bmc){
-   int code=bmc.getStatusCode();
-   return bmc.isClientSide()||bmc.isTimeout()||code<=0||code>=500||code==408||code==429;
-  }
-  return IacBackend.super.isTransient(e);
+  return isTransientBmc(e)||IacBackend.super.isTransient(e);
+ }
+ /** Server errors, throttling, request timeouts and client-side network failures; also used by {@code ociRmStack}. */
+ static boolean isTransientBmc(Exception e){
+  if(!(e instanceof BmcException bmc))return false;
+  int code=bmc.getStatusCode();
+  return bmc.isClientSide()||bmc.isTimeout()||code<=0||code>=500||code==408||code==429;
  }
  private String resolvePlanJobId(String mode,Map<String,String> p,SubmissionRequest request,Run<?,?> run){
   String direct=blankToNull(p.get("planJobId"));
