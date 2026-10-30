@@ -10,6 +10,9 @@ Declarative Jenkins Pipeline integration for Oracle Cloud Infrastructure Resourc
 - Jenkins 2.568.3 or newer
 - Java 21
 - `iac-pipeline-api` of the matching tested version
+- the `jersey2-api`, `jackson2-api` and `apache-httpcomponents-client-4-api` plugins, which provide the libraries of
+  the OCI SDK; the plugin manager installs them with this plugin. The HPI bundles only the SDK itself, see
+  [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 - OCI Resource Manager stack, or a Git or Object Storage configuration source to create one with `ociRmStack`
 - OCI API-key identity with the required IAM permissions
 
