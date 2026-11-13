@@ -16,7 +16,7 @@
  <properties>
   <jenkins.baseline>2.568</jenkins.baseline><jenkins.version>${jenkins.baseline}.3</jenkins.version><java.level>21</java.level>
   <oci.sdk.version>3.97.2</oci.sdk.version>
-  <jackson.version>2.22.3</jackson.version>
+  <jackson.version>2.22.4</jackson.version>
  </properties>
  <dependencyManagement><dependencies>
   <dependency><groupId>io.jenkins.tools.bom</groupId><artifactId>bom-${jenkins.baseline}.x</artifactId><version>7312.v55b_41644b_77d</version><type>pom</type><scope>import</scope></dependency>
